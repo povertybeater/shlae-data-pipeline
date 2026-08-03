@@ -31,7 +31,7 @@ jobs:
       - name: Run Data Mining Script
         run: python mine_multi_industry_leads.py
 
-       - name: Upload Leads to shlae.com via FTP
+      - name: Upload Leads to shlae.com via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.SFTP_HOST }}
@@ -44,8 +44,6 @@ jobs:
             **/**
             !leads.csv
             !multi_industry_leads.json
-
-
 
       - name: Commit and Push Generated Lead Files
         run: |
