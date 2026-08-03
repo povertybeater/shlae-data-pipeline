@@ -10,7 +10,7 @@ SOCRATA_APP_TOKEN = os.getenv("SOCRATA_APP_TOKEN", "")
 
 # 1. Endpoints & Constants
 BOSTON_PERMITS_ENDPOINT = "https://data.boston.gov/api/3/action/datastore_search"
-RESOURCE_ID_BUILDING_PERMITS = "601e4810-745a-43eb-8094-1a6c0b380313" # Building Permits
+RESOURCE_ID_BUILDING_PERMITS = "6ddcd912-32a0-43df-9908-63574f8c7e77" # Building Permits
 
 # Categories & Keywords Filter Map
 CATEGORY_KEYWORDS = {
