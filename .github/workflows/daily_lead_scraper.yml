@@ -31,13 +31,14 @@ jobs:
       - name: Run Data Mining Script
         run: python mine_multi_industry_leads.py
 
-      - name: Upload Leads to shlae.com via FTP
+      - name: Upload Leads to shlae.com via FTPS
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.SFTP_HOST }}
           username: ${{ secrets.SFTP_USERNAME }}
           password: ${{ secrets.SFTP_PASSWORD }}
           port: 21
+          protocol: ftps
           local-dir: './'
           server-dir: '../wp-content/uploads/leads/'
           exclude: |
