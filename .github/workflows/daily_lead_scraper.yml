@@ -35,6 +35,10 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add multi_industry_leads.json leads.csv
-          git diff --staged --quiet || git commit -m "chore: auto-update daily lead data feeds [skip ci]"
-          git push
+          if [ -f leads.csv ] || [ -f multi_industry_leads.json ]; then
+            git add multi_industry_leads.json leads.csv
+            git diff --staged --quiet || git commit -m "chore: auto-update daily lead data feeds [skip ci]"
+            git push
+          else
+            echo "No lead files generated to commit."
+          fi
