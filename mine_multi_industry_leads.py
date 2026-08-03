@@ -95,7 +95,7 @@ def process_leads():
             "agency": owner,
             "value": formatted_val,
             "description": work_desc[:120] + "..." if len(work_desc) > 120 else work_desc,
-            "raw_contact": applicant,
+            "raw_contact": redact_text (applicant),
             "email": redact_email(f"procurement@{str(applicant or 'Prime').lower().replace(' ', '').replace(',', '')[:8]}.com"),
             "unlocked": False,
             "date_added": datetime.now().strftime("%Y-%m-%d")
