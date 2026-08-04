@@ -2,7 +2,7 @@ name: SHLAE Daily Lead Data Mining Pipeline
 
 on:
   schedule:
-    - cron: '0 6 * * *' # Runs daily at 6:00 AM UTC
+    - cron: '14 10 * * *' # Runs daily at 6:14 AM EDT (10:14 AM UTC) to avoid server congestion
   workflow_dispatch: # Allows manual trigger from GitHub UI
 
 permissions:
@@ -13,7 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
@@ -49,7 +48,7 @@ jobs:
       - name: Commit and Push Generated Lead Files
         run: |
           git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.email "github-actions[bot]@://github.com"
           if [ -f leads.csv ] || [ -f multi_industry_leads.json ]; then
             git add multi_industry_leads.json leads.csv
             git diff --staged --quiet || git commit -m "chore: auto-update daily lead data feeds [skip ci]"
