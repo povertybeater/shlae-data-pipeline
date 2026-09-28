@@ -1,58 +1,57 @@
-name: SHLAE Daily Lead Data Mining Pipeline
+name: SHLAE Boston public lead previews
 
 on:
   schedule:
-    - cron: '14 10 * * *' # Runs daily at 6:14 AM EDT (10:14 AM UTC) to avoid server congestion
-  workflow_dispatch: # Allows manual trigger from GitHub UI
+    - cron: '14 10 * * *' # 10:14 UTC; local Boston time shifts with daylight saving.
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: shlae-boston-preview
+  cancel-in-progress: false
+
 jobs:
-  build-and-run:
+  build:
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v5
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
         with:
-          python-version: '3.10'
-
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests pandas
-
-      - name: Run Data Mining Script
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test transformations without network
+        run: python -m unittest discover -s tests -v
+      - name: Build source-backed public previews
         run: python mine_multi_industry_leads.py
-
-      - name: Upload Leads to shlae.com via FTPS
+      - name: Verify public feed contains no contact fields
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('public/multi_industry_leads.json').read_text())
+          assert data and all(not ({'email','phone','raw_contact','contact_email','contact_phone'} & set(row)) for row in data)
+          print(f'Validated {len(data)} public previews')
+          PY
+      - name: Upload only public previews to FTP root
+        if: ${{ vars.SHLAE_PUBLIC_FEED_ENABLED == 'true' }}
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.SFTP_HOST }}
-          username: ${{ secrets.SFTP_USERNAME }}
-          password: ${{ secrets.SFTP_PASSWORD }}
+          server: ${{ secrets.FTPS_HOST }}
+          username: ${{ secrets.FTPS_USERNAME }}
+          password: ${{ secrets.FTPS_PASSWORD }}
           port: 21
           protocol: ftps
-          local-dir: './'
-          server-dir: '../wp-content/uploads/leads/'
-          exclude: |
-            **/**
-            !leads.csv
-            !multi_industry_leads.json
-
-      - name: Commit and Push Generated Lead Files
+          local-dir: ./public/
+          server-dir: ./
+      - name: Save public previews and stable first-seen state
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@://github.com"
-          if [ -f leads.csv ] || [ -f multi_industry_leads.json ]; then
-            git add multi_industry_leads.json leads.csv
-            git diff --staged --quiet || git commit -m "chore: auto-update daily lead data feeds [skip ci]"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/multi_industry_leads.json public/leads.csv state/first_seen.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: refresh Boston public previews [skip ci]"
             git push
-          else
-            echo "No lead files generated to commit."
           fi
