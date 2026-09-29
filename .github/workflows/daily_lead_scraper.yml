@@ -15,27 +15,59 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v5
+      - name: Check out repository
+        uses: actions/checkout@v5
         with:
           persist-credentials: true
-      - uses: actions/setup-python@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
       - name: Test transformations without network
         run: python -m unittest discover -s tests -v
+
       - name: Build source-backed public previews
         run: python mine_multi_industry_leads.py
+
       - name: Verify public feed contains no contact fields
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
-          data = json.loads(Path('public/multi_industry_leads.json').read_text())
-          assert data and all(not ({'email','phone','raw_contact','contact_email','contact_phone'} & set(row)) for row in data)
-          print(f'Validated {len(data)} public previews')
+
+          feed = Path("public/multi_industry_leads.json")
+
+          if not feed.exists():
+              raise SystemExit("ERROR: public/multi_industry_leads.json was not generated")
+
+          data = json.loads(feed.read_text(encoding="utf-8"))
+
+          if not data:
+              raise SystemExit("ERROR: public lead feed is empty")
+
+          prohibited = {
+              "email",
+              "phone",
+              "raw_contact",
+              "contact_email",
+              "contact_phone",
+          }
+
+          for row in data:
+              exposed = prohibited & set(row)
+              if exposed:
+                  raise SystemExit(
+                      f"ERROR: Public feed contains prohibited contact fields: {sorted(exposed)}"
+                  )
+
+          print(f"Validated {len(data)} public previews")
           PY
-      - name: Upload only public previews to FTP root
+
+      - name: Upload only public previews to SHLAE FTP
         if: ${{ vars.SHLAE_PUBLIC_FEED_ENABLED == 'true' }}
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -43,15 +75,23 @@ jobs:
           username: ${{ secrets.FTPS_USERNAME }}
           password: ${{ secrets.FTPS_PASSWORD }}
           port: 21
-          protocol: ftps
+          protocol: ftp
           local-dir: ./public/
           server-dir: ./
+
       - name: Save public previews and stable first-seen state
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/multi_industry_leads.json public/leads.csv state/first_seen.json
+
+          git add \
+            public/multi_industry_leads.json \
+            public/leads.csv \
+            state/first_seen.json
+
           if ! git diff --cached --quiet; then
             git commit -m "chore: refresh Boston public previews [skip ci]"
             git push
+          else
+            echo "No repository changes to commit."
           fi
