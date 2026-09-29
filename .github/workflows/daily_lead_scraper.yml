@@ -1,9 +1,15 @@
-name: SHLAE Boston public lead previews
+name: SHLAE daily Boston leads — newest first, 30 days
 
 on:
   schedule:
     - cron: '14 10 * * *' # 10:14 UTC; local Boston time shifts with daylight saving.
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'daily_leads.py'
+      - 'tests/test_daily_leads.py'
+      - '.github/workflows/daily_lead_scraper.yml'
 
 permissions:
   contents: write
@@ -27,11 +33,17 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install encryption dependency
+        run: python -m pip install cryptography==46.0.5
+
       - name: Test transformations without network
         run: python -m unittest discover -s tests -v
 
       - name: Build source-backed public previews
-        run: python mine_multi_industry_leads.py
+        env:
+          SHLAE_PRIVATE_FEED_KEY: ${{ secrets.SHLAE_PRIVATE_FEED_KEY }}
+          SHLAE_REVIEWED_CONTACTS_JSON: ${{ secrets.SHLAE_REVIEWED_CONTACTS_JSON }}
+        run: python daily_leads.py
 
       - name: Verify public feed contains no contact fields
         run: |
@@ -46,8 +58,7 @@ jobs:
 
           data = json.loads(feed.read_text(encoding="utf-8"))
 
-          if not data:
-              raise SystemExit("ERROR: public lead feed is empty")
+          # Empty successful result intentionally removes expired inventory.
 
           prohibited = {
               "email",
@@ -55,6 +66,10 @@ jobs:
               "raw_contact",
               "contact_email",
               "contact_phone",
+              "business_name",
+              "applicant_name",
+              "street_address",
+              "contact_name",
           }
 
           for row in data:
@@ -87,6 +102,7 @@ jobs:
           git add \
             public/multi_industry_leads.json \
             public/leads.csv \
+            public/feed_status.json \
             state/first_seen.json
 
           if ! git diff --cached --quiet; then
