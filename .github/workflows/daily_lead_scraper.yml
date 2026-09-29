@@ -71,9 +71,9 @@ jobs:
         if: ${{ vars.SHLAE_PUBLIC_FEED_ENABLED == 'true' }}
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.FTPS_HOST }}
-          username: ${{ secrets.FTPS_USERNAME }}
-          password: ${{ secrets.FTPS_PASSWORD }}
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
           port: 21
           protocol: ftp
           local-dir: ./public/
