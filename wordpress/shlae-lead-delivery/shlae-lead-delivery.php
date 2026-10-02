@@ -2,13 +2,13 @@
 /**
  * Plugin Name: SHLAE Selected Lead Delivery
  * Description: Selected-record checkout, private CSV delivery and reviewed inventory.
- * Version: 0.1.0
+ * Version: 0.1.1
  */
 if (!defined('ABSPATH')) { exit; }
 final class SHLAE_Lead_Delivery {
     const PRODUCT = 1053;
     const OPTION = 'shlae_private_inventory_v1';
-    const FIELDS = ['id','sector','business_name','company_role','contact_name','contact_role','email','phone','website','street_address','city','state','zip','description','value','permit_number','permit_type','permit_status','record_date','expiration_date','source_url','contact_verification','verification_method','contact_checked_at','contact_source_url','contract_status','date_checked'];
+    const FIELDS = ['id','sector','business_name','company_role','contact_name','contact_role','contact_type','email','phone','website','street_address','city','state','zip','description','value','permit_number','permit_type','permit_status','record_date','expiration_date','source_url','contact_verification','verification_method','contact_checked_at','contact_source_url','contract_status','date_checked'];
     static function boot() {
         add_action('admin_menu', [__CLASS__, 'menu']);
         add_action('admin_post_shlae_import', [__CLASS__, 'import']);
@@ -95,6 +95,7 @@ final class SHLAE_Lead_Delivery {
         $accepted=[];
         foreach ($rows as $row) {
             if (self::valid($row)) {
+                $row['contact_type']=self::contact_type($row);
                 $row['max_buyers']=max(1,min(100,(int)($row['max_buyers'] ?? 5)));
                 $accepted[$row['id']]=$row;
             }
@@ -249,6 +250,10 @@ final class SHLAE_Lead_Delivery {
         } }
         return $downloads;
     }
+    static function contact_type($row) {
+        $type=strtolower(trim((string)($row['contact_type'] ?? 'general')));
+        return in_array($type,['general','executive','department','staff'],true) ? $type : 'general';
+    }
     static function csv_value($value) {
         $value=is_scalar($value) ? (string)$value : '';
         return preg_match('/^[\s]*[=+@-]/',$value) ? "'".$value : $value;
@@ -262,7 +267,7 @@ final class SHLAE_Lead_Delivery {
         nocache_headers(); header('X-Content-Type-Options: nosniff'); header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="shlae-'.$item_id.'.csv"');
         $stream=fopen('php://output','w'); fputcsv($stream,self::FIELDS,',','"','');
-        fputcsv($stream,array_map(fn($field)=>self::csv_value($row[$field] ?? ''),self::FIELDS),',','"',''); fclose($stream); exit;
+        fputcsv($stream,array_map(fn($field)=>self::csv_value($field==='contact_type' ? self::contact_type($row) : ($row[$field] ?? '')),self::FIELDS),',','"',''); fclose($stream); exit;
     }
     static function test() {
         if (!current_user_can('manage_woocommerce')) { wp_die('Not permitted.','',['response'=>403]); }
