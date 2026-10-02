@@ -105,7 +105,7 @@ def full_record(raw, today, previous):
         }),
         "contact_status": "source_applicant_only" if applicant else "contact_missing",
         "contact_checked_at": "", "contact_source_url": "",
-        "company_role": "", "contact_role": "", "contact_verification": "",
+        "company_role": "", "contact_role": "", "contact_type": "general", "contact_verification": "",
         "contract_status": "unknown", "appointed_contractor": "", "award_date": "",
         "contract_status_source_url": "", "contract_status_checked_at": "",
         "first_seen_at": previous.get(lead_id, today.isoformat()),
@@ -148,6 +148,9 @@ def enrich_contact(item, contacts, today):
     for field in ("business_name", "contact_name", "email", "phone", "website",
                   "company_role", "contact_role", "contact_verification", "verification_method"):
         item[field] = str(contact.get(field, "")).strip()
+    # Categories are supplied by reviewed evidence, never inferred from a name or inbox.
+    contact_type = str(contact.get("contact_type", "general")).strip().lower()
+    item["contact_type"] = contact_type if contact_type in {"general", "executive", "department", "staff"} else "general"
     item["contact_checked_at"] = checked.isoformat()
     item["contact_source_url"] = source
     verification = item["contact_verification"]
