@@ -8918,11 +8918,11 @@
     "date_checked": "2026-10-02",
     "status": "public_record_preview",
     "expires_on": "2026-10-25",
-    "contact_status": "source_applicant_only",
-    "purchase_ready": false,
+    "contact_status": "reviewed_business_contact",
+    "purchase_ready": true,
     "age_days": 7,
     "freshness": "new",
-    "contact_quality": "unverified"
+    "contact_quality": "contact_checked"
   },
   {
     "id": "BOS-AF67DA423151C7CC",
