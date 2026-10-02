@@ -8,6 +8,7 @@ import csv
 import hashlib
 import json
 import os
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlencode
@@ -25,6 +26,7 @@ PUBLIC_FIELDS = (
     "id", "sector", "name", "location", "agency", "value", "description",
     "record_date", "source_url", "source_type", "first_seen_at", "date_checked",
     "status", "expires_on", "contact_status", "purchase_ready",
+    "age_days", "freshness", "contact_quality",
 )
 
 
@@ -74,6 +76,9 @@ def full_record(raw, today, previous):
     permit_status = first(raw, "status")
     if permit_status.casefold() in {"closed", "expired", "revoked", "cancelled", "canceled", "void"}:
         return None
+    expiration = source_date(first(raw, "expiration_date"))
+    if expiration and expiration < today:
+        return None
     lead_id = stable_id("permit", f"{RESOURCE}:{source_id}")
     details = " ".join(filter(None, (
         first(raw, "workdesc", "description"), first(raw, "comments"),
@@ -105,6 +110,9 @@ def full_record(raw, today, previous):
         "first_seen_at": previous.get(lead_id, today.isoformat()),
         "date_checked": today.isoformat(),
         "expires_on": (source_date(issued) + timedelta(days=30)).isoformat(),
+        "age_days": (today - source_date(issued)).days,
+        "freshness": "new" if (today - source_date(issued)).days <= 7 else "recent",
+        "contact_quality": "unverified",
         "purchase_ready": False,
     }
 
@@ -122,13 +130,15 @@ def preview(full):
         "date_checked": full["date_checked"], "status": "public_record_preview",
         "expires_on": full["expires_on"], "contact_status": full["contact_status"],
         "purchase_ready": full["purchase_ready"],
+        "age_days": full["age_days"], "freshness": full["freshness"],
+        "contact_quality": full["contact_quality"],
     }
 
 
 def enrich_contact(item, contacts, today):
     """Accept researched contacts keyed by stable ID, with dated evidence."""
     contact = contacts.get(item["id"])
-    if not contact:
+    if not isinstance(contact, dict):
         return
     checked = source_date(contact.get("checked_at"))
     source = str(contact.get("source_url", ""))
@@ -139,7 +149,12 @@ def enrich_contact(item, contacts, today):
         item[field] = str(contact.get(field, "")).strip()
     item["contact_checked_at"] = checked.isoformat()
     item["contact_source_url"] = source
-    item["purchase_ready"] = bool(item["business_name"] and (item["email"] or item["phone"]))
+    verification = item["contact_verification"]
+    item["contact_quality"] = verification if verification in {"business_matched", "contact_checked"} else "unverified"
+    email_ok = bool(re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", item["email"]))
+    phone_ok = 10 <= len(re.sub(r"\D", "", item["phone"])) <= 15
+    item["purchase_ready"] = bool(item["business_name"] and (email_ok or phone_ok)
+                                  and verification == "contact_checked")
     item["contact_status"] = "reviewed_business_contact" if item["purchase_ready"] else "incomplete_business_contact"
 
 
@@ -170,9 +185,15 @@ def enrich_contract(item, evidence, today):
 
 def build(records, today, previous=None, contacts=None, contract_evidence=None):
     unique = {}
-    for raw in records:
+    permit_keys = set()
+    for raw in sorted(records, key=lambda r: (str(first(r, "issued_date")), str(first(r, "_id"))), reverse=True):
         item = full_record(raw, today, previous or {})
         if item:
+            permit = item["permit_number"].strip().casefold()
+            if permit and permit in permit_keys:
+                continue
+            if permit:
+                permit_keys.add(permit)
             enrich_contact(item, contacts or {}, today)
             enrich_contract(item, contract_evidence or {}, today)
             unique[item["id"]] = item
@@ -252,6 +273,10 @@ def main():
     write_atomic(folder / "feed_status.json", json.dumps({
         "updated_at": datetime.now(ZONE).isoformat(),
         "window_days": 30, "record_count": len(public),
+        "source_record_count": len(records),
+        "excluded_or_duplicate_count": len(records) - len(public),
+        "contact_quality_counts": {label: sum(row["contact_quality"] == label for row in public)
+                                   for label in ("unverified", "business_matched", "contact_checked")},
         "private_feed_encrypted": encrypted is not None,
         "purchase_ready_count": sum(row["purchase_ready"] for row in public),
     }, indent=2) + "\n")
