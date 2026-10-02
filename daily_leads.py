@@ -15,6 +15,7 @@ from urllib.request import urlopen
 from zoneinfo import ZoneInfo
 
 from mine_multi_industry_leads import RESOURCE, RENEWABLE, first, stable_id
+from energy_packages import classify, packages
 
 ROOT = Path(__file__).resolve().parent
 API = "https://data.boston.gov/api/3/action/datastore_search_sql"
@@ -77,7 +78,7 @@ def full_record(raw, today, previous):
     details = " ".join(filter(None, (
         first(raw, "workdesc", "description"), first(raw, "comments"),
     )))
-    sector = "Renewable Energy" if RENEWABLE.search(details) else "Construction"
+    sector = "Renewable Energy" if classify(details) or RENEWABLE.search(details) else "Construction"
     issued = first(raw, "issued_date", "issueddate")
     applicant = first(raw, "applicant")
     return {
@@ -98,6 +99,9 @@ def full_record(raw, today, previous):
         }),
         "contact_status": "source_applicant_only" if applicant else "contact_missing",
         "contact_checked_at": "", "contact_source_url": "",
+        "company_role": "", "contact_role": "", "contact_verification": "",
+        "contract_status": "unknown", "appointed_contractor": "", "award_date": "",
+        "contract_status_source_url": "", "contract_status_checked_at": "",
         "first_seen_at": previous.get(lead_id, today.isoformat()),
         "date_checked": today.isoformat(),
         "expires_on": (source_date(issued) + timedelta(days=30)).isoformat(),
@@ -130,7 +134,8 @@ def enrich_contact(item, contacts, today):
     source = str(contact.get("source_url", ""))
     if not checked or not today - timedelta(days=30) < checked <= today or not source.startswith("https://"):
         return
-    for field in ("business_name", "contact_name", "email", "phone", "website"):
+    for field in ("business_name", "contact_name", "email", "phone", "website",
+                  "company_role", "contact_role", "contact_verification"):
         item[field] = str(contact.get(field, "")).strip()
     item["contact_checked_at"] = checked.isoformat()
     item["contact_source_url"] = source
@@ -138,12 +143,38 @@ def enrich_contact(item, contacts, today):
     item["contact_status"] = "reviewed_business_contact" if item["purchase_ready"] else "incomplete_business_contact"
 
 
-def build(records, today, previous=None, contacts=None):
+CONTRACT_STATUSES = {"open_solicitation", "awarded", "work_underway", "completed", "canceled"}
+
+
+def enrich_contract(item, evidence, today):
+    """Contract evidence is reviewed separately from permit/contact status."""
+    record = evidence.get(item["id"])
+    if not isinstance(record, dict):
+        return
+    checked = source_date(record.get("checked_at"))
+    source = str(record.get("source_url", "")).strip()
+    status = str(record.get("contract_status", "")).strip()
+    if (status not in CONTRACT_STATUSES or not checked or
+            not today - timedelta(days=30) < checked <= today or
+            not source.startswith("https://") or record.get("verification") != "reviewed"):
+        return
+    award = source_date(record.get("award_date"))
+    if record.get("award_date") and (award is None or award > today):
+        return
+    item.update(contract_status=status,
+                appointed_contractor=str(record.get("appointed_contractor", "")).strip(),
+                award_date=award.isoformat() if award else "",
+                contract_status_source_url=source,
+                contract_status_checked_at=checked.isoformat())
+
+
+def build(records, today, previous=None, contacts=None, contract_evidence=None):
     unique = {}
     for raw in records:
         item = full_record(raw, today, previous or {})
         if item:
             enrich_contact(item, contacts or {}, today)
+            enrich_contract(item, contract_evidence or {}, today)
             unique[item["id"]] = item
     full = sorted(unique.values(), key=lambda item: (item["record_date"], item["id"]), reverse=True)
     public = [preview(item) for item in full]
@@ -189,9 +220,20 @@ def main():
     contacts = json.loads(os.environ.get("SHLAE_REVIEWED_CONTACTS_JSON") or "{}")
     if not isinstance(contacts, dict):
         raise ValueError("Reviewed contacts must be keyed by lead ID")
-    public, full, state = build(records, today, previous, contacts)
+    contracts = json.loads(os.environ.get("SHLAE_REVIEWED_CONTRACTS_JSON") or "{}")
+    if not isinstance(contracts, dict):
+        raise ValueError("Reviewed contracts must be keyed by lead ID")
+    public, full, state = build(records, today, previous, contacts, contracts)
     key = os.environ.get("SHLAE_PRIVATE_FEED_KEY", "")
     encrypted = encrypt_full(full, key) if key else None
+    package_state_path = ROOT / "state" / "energy_fingerprints.json"
+    prior_packages = json.loads(package_state_path.read_text()) if package_state_path.exists() else {}
+    if not isinstance(prior_packages, dict):
+        raise ValueError("Invalid energy package state")
+    grouped, review, package_state = packages(full, prior_packages)
+    bundle = [{"package": name, "records": rows} for name, rows in grouped.items()]
+    bundle.append({"package": "contact-review", "records": review})
+    package_cipher = encrypt_full(bundle, key) if key else None
     folder = ROOT / "public"
     folder.mkdir(exist_ok=True)
     # An empty successful result replaces old inventory; a source failure does not.
@@ -213,6 +255,19 @@ def main():
         "private_feed_encrypted": encrypted is not None,
         "purchase_ready_count": sum(row["purchase_ready"] for row in public),
     }, indent=2) + "\n")
+    write_atomic(package_state_path, json.dumps(package_state, indent=2) + "\n")
+    write_atomic(folder / "energy_package_status.json", json.dumps({
+        "updated_at": datetime.now(ZONE).isoformat(),
+        "packages": [{"package": name, "eligible_count": len(rows),
+                      "new_or_changed_count": sum(r["change_type"] != "unchanged" for r in rows)}
+                     for name, rows in grouped.items()],
+        "review_count": len(review), "encrypted_bundle_available": package_cipher is not None,
+    }, indent=2) + "\n")
+    private_bundle = ROOT / "private" / "energy_packages.enc.json"
+    if package_cipher:
+        write_atomic(private_bundle, package_cipher)
+    elif private_bundle.exists():
+        private_bundle.unlink()
     print(f"Fetched {len(records)} recent source records; published {len(public)} active previews.")
     print("Private encrypted feed enabled:", encrypted is not None)
     if not key:
