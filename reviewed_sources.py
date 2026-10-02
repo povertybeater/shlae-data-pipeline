@@ -63,7 +63,7 @@ def extract(applicant, html, source, today):
     if not (emails or phones): return None
     return dict(business_name=applicant, contact_name='', email=emails[0] if emails else '',
                 phone=phones[0] if phones else '', website=f'https://{urlsplit(source).netloc}/',
-                company_role='Permit applicant / electrical contractor', contact_role='Business office',
+                company_role='Permit applicant / electrical contractor', contact_role='Business office', contact_type='general',
                 contact_verification='contact_checked', verification_method='published_official_source',
                 mailbox_delivery_tested=False, phone_call_tested=False,
                 source_url=source, checked_at=today.isoformat())
