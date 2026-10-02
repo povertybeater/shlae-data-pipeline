@@ -17,6 +17,7 @@ from zoneinfo import ZoneInfo
 
 from mine_multi_industry_leads import RESOURCE, RENEWABLE, first, stable_id
 from energy_packages import classify, packages
+from reviewed_sources import refresh
 
 ROOT = Path(__file__).resolve().parent
 API = "https://data.boston.gov/api/3/action/datastore_search_sql"
@@ -145,7 +146,7 @@ def enrich_contact(item, contacts, today):
     if not checked or not today - timedelta(days=30) < checked <= today or not source.startswith("https://"):
         return
     for field in ("business_name", "contact_name", "email", "phone", "website",
-                  "company_role", "contact_role", "contact_verification"):
+                  "company_role", "contact_role", "contact_verification", "verification_method"):
         item[field] = str(contact.get(field, "")).strip()
     item["contact_checked_at"] = checked.isoformat()
     item["contact_source_url"] = source
@@ -241,6 +242,12 @@ def main():
     contacts = json.loads(os.environ.get("SHLAE_REVIEWED_CONTACTS_JSON") or "{}")
     if not isinstance(contacts, dict):
         raise ValueError("Reviewed contacts must be keyed by lead ID")
+    source_contacts, source_status = refresh(records, today)
+    for raw in records:
+        contact = source_contacts.get(str(raw.get("applicant") or "").strip())
+        if contact:
+            lead_id = stable_id("permit", f"{RESOURCE}:{first(raw, '_id')}")
+            contacts.setdefault(lead_id, contact)
     contracts = json.loads(os.environ.get("SHLAE_REVIEWED_CONTRACTS_JSON") or "{}")
     if not isinstance(contracts, dict):
         raise ValueError("Reviewed contracts must be keyed by lead ID")
@@ -278,6 +285,7 @@ def main():
         "contact_quality_counts": {label: sum(row["contact_quality"] == label for row in public)
                                    for label in ("unverified", "business_matched", "contact_checked")},
         "private_feed_encrypted": encrypted is not None,
+        "official_source_contact_checks": source_status,
         "purchase_ready_count": sum(row["purchase_ready"] for row in public),
     }, indent=2) + "\n")
     write_atomic(package_state_path, json.dumps(package_state, indent=2) + "\n")
