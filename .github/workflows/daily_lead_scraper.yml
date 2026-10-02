@@ -7,6 +7,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'wordpress/shlae-lead-delivery/**'
       - 'daily_leads.py'
       - 'energy_packages.py'
       - 'tests/test_energy_packages.py'
@@ -94,7 +95,17 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: Upload only public previews to SHLAE FTP
+      - name: Package SHLAE plugin update for manual installation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+          source = Path("wordpress/shlae-lead-delivery/shlae-lead-delivery.php")
+          with ZipFile("public/shlae-lead-delivery.zip", "w", ZIP_DEFLATED) as package:
+              package.write(source, "shlae-lead-delivery/shlae-lead-delivery.php")
+          PY
+
+      - name: Upload public previews and plugin package to SHLAE FTP
         if: ${{ vars.SHLAE_PUBLIC_FEED_ENABLED == 'true' }}
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
