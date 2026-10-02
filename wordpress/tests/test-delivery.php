@@ -8,6 +8,7 @@ function get_option($key,$default=false) { return $GLOBALS['options'][$key] ?? $
 function update_option($key,$value,$autoload=false) { $GLOBALS['options'][$key]=$value; }
 function add_option($key,$value,$deprecated='',$autoload='no') { if (isset($GLOBALS['options'][$key])) { return false; } $GLOBALS['options'][$key]=$value; return true; }
 function delete_option($key) { unset($GLOBALS['options'][$key]); }
+function sanitize_text_field($s) { return strip_tags($s); } function wp_unslash($s) { return $s; }
 function wp_json_encode($value) { return json_encode($value); }
 require __DIR__.'/../shlae-lead-delivery/shlae-lead-delivery.php';
 class Item {
@@ -27,6 +28,7 @@ class Order {
  function get_qty_refunded_for_item($id){return $this->refund;}
 }
 $n=0;function check($condition,$name){global $n;if(!$condition){throw new Exception('FAIL: '.$name);} $n++;echo "PASS: $name\n";}
+$_REQUEST['shlae_lead']='BOS-ABC123';check(SHLAE_Lead_Delivery::selected()==='BOS-ABC123','uppercase source ID preserved');
 $row=['id'=>'permit-test','record_date'=>'2026-10-01','expires_on'=>'2026-10-31','contact_checked_at'=>'2026-10-02','contact_verification'=>'contact_checked','business_name'=>'Example','email'=>'office@example.com','phone'=>'','contact_source_url'=>'https://example.com/contact','max_buyers'=>1];
 check(SHLAE_Lead_Delivery::valid($row),'reviewed fresh contact accepted');
 check(!SHLAE_Lead_Delivery::valid(array_replace($row,['record_date'=>'2026-08-01'])),'stale permit rejected');
