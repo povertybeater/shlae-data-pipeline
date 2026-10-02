@@ -74,6 +74,20 @@ class DailyTests(unittest.TestCase):
         contact["email"] = "broken"
         self.assertFalse(p.build([self.record()], self.today, contacts={lead_id: contact})[0][0]["purchase_ready"])
 
+    def test_contact_types_preserve_reviewed_category_and_default_safely(self):
+        lead_id = p.stable_id("permit", f"{p.RESOURCE}:42")
+        contact = {"business_name": "Acme", "email": "a@example.com",
+                   "contact_verification": "contact_checked",
+                   "checked_at": self.today.isoformat(), "source_url": "https://example.com"}
+        for category in ("general", "executive", "department", "staff", "invented", ""):
+            contact["contact_type"] = category
+            public, full, _ = p.build([self.record()], self.today, contacts={lead_id: contact})
+            self.assertEqual(full[0]["contact_type"], category if category in
+                             {"general", "executive", "department", "staff"} else "general")
+            self.assertNotIn("contact_type", public[0])
+        del contact["contact_type"]
+        self.assertEqual(p.build([self.record()], self.today, contacts={lead_id: contact})[1][0]["contact_type"], "general")
+
     def test_date_sorted_query_and_failure(self):
         seen = []
         def opener(url, timeout):
