@@ -1,0 +1,23 @@
+import json,unittest
+from datetime import date
+import daily_leads as p
+from energy_packages import packages
+class ContractTests(unittest.TestCase):
+ def test_evidence_and_redaction(self):
+  today=date(2026,10,2)
+  raw={'_id':123,'address':'Secret Street','issued_date':'2026-10-01','status':'Open','comments':'solar'}
+  lead=p.full_record(raw,today,{})['id']
+  evidence={lead:dict(contract_status='awarded',appointed_contractor='Contractor',award_date='2026-09-30',source_url='https://example.org/award',checked_at='2026-10-01',verification='reviewed')}
+  public,full,_=p.build([raw],today,contract_evidence=evidence)
+  self.assertEqual(full[0]['contract_status'],'awarded')
+  self.assertNotIn('Contractor',json.dumps(public))
+  for changes in [dict(checked_at='2026-09-01'),dict(verification=''),dict(contract_status='invented'),dict(award_date='2026-10-03')]:
+   altered={lead:dict(evidence[lead],**changes)}
+   self.assertEqual(p.build([raw],today,contract_evidence=altered)[1][0]['contract_status'],'unknown')
+ def test_closed_projects_excluded_and_status_changes_tracked(self):
+  r=dict(id='a',description='solar',business_name='Co',company_role='installer',contact_role='sales',contact_verification='reviewed',purchase_ready=True,contract_status='awarded')
+  g,_,state=packages([r]);self.assertEqual(len(g['solar']),1)
+  r['contract_status']='work_underway'
+  self.assertEqual(packages([r],state)[0]['solar'][0]['change_type'],'changed')
+  for status in ['completed','canceled']:
+   r['contract_status']=status;self.assertFalse(packages([r])[0]['solar'])
