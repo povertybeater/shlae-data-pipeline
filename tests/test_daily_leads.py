@@ -45,13 +45,34 @@ class DailyTests(unittest.TestCase):
     def test_contacts_require_fresh_evidence_and_are_redacted(self):
         item = self.record()
         lead_id = p.stable_id("permit", f"{p.RESOURCE}:42")
-        contacts = {lead_id: {"business_name": "Acme", "email": "a@example.com",
+        contacts = {lead_id: {"business_name": "Acme", "email": "a@example.com", "contact_verification": "contact_checked",
                              "checked_at": "2026-09-29", "source_url": "https://example.com/contact"}}
         public, full, _ = p.build([item], self.today, contacts=contacts)
         self.assertTrue(public[0]["purchase_ready"])
         self.assertNotIn("Acme", json.dumps(public))
         contacts[lead_id]["checked_at"] = "2026-08-30"
         self.assertFalse(p.build([item], self.today, contacts=contacts)[0][0]["purchase_ready"])
+
+    def test_permit_duplicates_expiration_and_quality(self):
+        rows = [self.record(permitnumber="ABC"), self.record(_id=43, permitnumber="ABC"),
+                self.record(_id=44, expiration_date="2026-09-28")]
+        public, _, _ = p.build(rows, self.today)
+        self.assertEqual(len(public), 1)
+        self.assertEqual(public[0]["age_days"], 0)
+        self.assertEqual(public[0]["freshness"], "new")
+        self.assertEqual(public[0]["contact_quality"], "unverified")
+
+    def test_candidate_and_business_match_not_purchase_ready(self):
+        lead_id = p.stable_id("permit", f"{p.RESOURCE}:42")
+        contact = {"business_name": "Acme", "email": "a@example.com",
+                   "checked_at": self.today.isoformat(), "source_url": "https://example.com"}
+        for status in ("", "candidate_needs_identity_review", "business_matched"):
+            contact["contact_verification"] = status
+            public, _, _ = p.build([self.record()], self.today, contacts={lead_id: contact})
+            self.assertFalse(public[0]["purchase_ready"])
+        contact["contact_verification"] = "contact_checked"
+        contact["email"] = "broken"
+        self.assertFalse(p.build([self.record()], self.today, contacts={lead_id: contact})[0][0]["purchase_ready"])
 
     def test_date_sorted_query_and_failure(self):
         seen = []
@@ -76,3 +97,4 @@ class DailyTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
