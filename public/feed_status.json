@@ -1,7 +1,14 @@
 {
-  "updated_at": "2026-10-02T12:17:00.721909-04:00",
+  "updated_at": "2026-10-02T16:45:12.164033-04:00",
   "window_days": 30,
   "record_count": 2344,
+  "source_record_count": 2650,
+  "excluded_or_duplicate_count": 306,
+  "contact_quality_counts": {
+    "unverified": 2344,
+    "business_matched": 0,
+    "contact_checked": 0
+  },
   "private_feed_encrypted": true,
   "purchase_ready_count": 0
 }
