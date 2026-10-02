@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-10-02T09:03:30.117187-04:00",
+  "updated_at": "2026-10-02T11:16:37.720615-04:00",
   "window_days": 30,
   "record_count": 2344,
-  "private_feed_encrypted": false,
+  "private_feed_encrypted": true,
   "purchase_ready_count": 0
 }
