@@ -141,7 +141,7 @@ final class SHLAE_Lead_Delivery {
         }
         return $html.'</tbody></table>';
     }
-    static function selected() { return sanitize_key(wp_unslash($_REQUEST['shlae_lead'] ?? '')); }
+    static function selected() { $id=sanitize_text_field(wp_unslash($_REQUEST['shlae_lead'] ?? '')); return preg_match('/^[a-zA-Z0-9_-]{1,80}$/',$id) ? $id : ''; }
     static function selection() {
         global $product; if (!$product || $product->get_id()!==self::PRODUCT) { return; }
         echo '<p>Select the specific record before checkout. Downloads are available in your account after payment.</p><label>Lead record <select name="shlae_lead"><option value="">Select a lead</option>';
