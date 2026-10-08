@@ -1,21 +1,21 @@
 {
-  "updated_at": "2026-10-07T13:26:53.495583-04:00",
+  "updated_at": "2026-10-08T13:24:39.891989-04:00",
   "window_days": 30,
-  "record_count": 2680,
-  "source_record_count": 3031,
-  "excluded_or_duplicate_count": 351,
+  "record_count": 176,
+  "source_record_count": 209,
+  "excluded_or_duplicate_count": 33,
   "contact_quality_counts": {
-    "unverified": 2679,
+    "unverified": 176,
     "business_matched": 0,
-    "contact_checked": 1
+    "contact_checked": 0
   },
   "private_feed_encrypted": true,
   "official_source_contact_checks": {
-    "approved_businesses": 1,
-    "published_contacts_checked": 1,
+    "approved_businesses": 0,
+    "published_contacts_checked": 0,
     "source_checks_failed": 0,
     "mailbox_delivery_tests": 0,
     "phone_call_tests": 0
   },
-  "purchase_ready_count": 1
+  "purchase_ready_count": 0
 }
