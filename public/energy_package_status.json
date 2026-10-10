@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-09T13:00:22.894859-04:00",
+  "updated_at": "2026-10-10T11:52:44.974994-04:00",
   "packages": [
     {
       "package": "battery-storage",
@@ -27,6 +27,6 @@
       "new_or_changed_count": 0
     }
   ],
-  "review_count": 207,
+  "review_count": 4,
   "encrypted_bundle_available": true
 }
