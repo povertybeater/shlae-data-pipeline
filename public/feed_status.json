@@ -1,11 +1,11 @@
 {
-  "updated_at": "2026-10-15T11:03:22.471169-04:00",
+  "updated_at": "2026-10-16T10:53:05.367129-04:00",
   "window_days": 30,
-  "record_count": 2679,
-  "source_record_count": 3002,
-  "excluded_or_duplicate_count": 323,
+  "record_count": 2673,
+  "source_record_count": 3001,
+  "excluded_or_duplicate_count": 328,
   "contact_quality_counts": {
-    "unverified": 2678,
+    "unverified": 2672,
     "business_matched": 0,
     "contact_checked": 1
   },
