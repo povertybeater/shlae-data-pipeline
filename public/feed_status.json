@@ -1,13 +1,13 @@
 {
-  "updated_at": "2026-11-24T15:40:37.507627-05:00",
+  "updated_at": "2026-11-25T14:57:20.095638-05:00",
   "window_days": 30,
-  "record_count": 2951,
-  "source_record_count": 3336,
-  "excluded_or_duplicate_count": 385,
+  "record_count": 2962,
+  "source_record_count": 3350,
+  "excluded_or_duplicate_count": 388,
   "contact_quality_counts": {
-    "unverified": 2949,
+    "unverified": 2959,
     "business_matched": 0,
-    "contact_checked": 2
+    "contact_checked": 3
   },
   "private_feed_encrypted": true,
   "official_source_contact_checks": {
@@ -17,5 +17,5 @@
     "mailbox_delivery_tests": 0,
     "phone_call_tests": 0
   },
-  "purchase_ready_count": 2
+  "purchase_ready_count": 3
 }
